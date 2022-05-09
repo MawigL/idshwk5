@@ -1,70 +1,92 @@
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from collections import *
 import math
 
-def Count_numbers(string):
-    c=0
-    for character in string:
-        if(character>='0' and character<='9'):
-            c+=1
-    return c
-
-def Calculate_entropy(string):
-    Map=Counter(string)
-    entropy=0.0
-    for val in Map.values():
-        entropy-=val/len(string)*math.log(val/len(string))
-    return entropy
-
-clf = RandomForestClassifier(random_state=0)
-domainlist = []
 class Domain:
-    def __init__(self,string,label):
-        self.length=len(string)
-        self.numbers=Count_numbers(string)
-        self.entropy=Calculate_entropy(string)
-        self.label=label
+    def __init__(self, _name, _label, _length, _num, _entropy, _seg):
+        self.name = _name
+        self.label = _label
+        self.length = _length
+        self.num = _num
+        self.entropy = _entropy
+        self.seg = _seg
     
-    def Return_data(self):
-        return [self.length,self.numbers,self.entropy]
-    
-    def Return_label(self):
-        if(self.label=="dga"):
-            return 0
-        else:
+    def returnData(self):
+        return [self.length, self.num, self.entropy, self.seg]
+ 
+    def returnLabel(self):
+        if self.label == "dga":
             return 1
+        else:
+            return 0
 
-def initData(filename):
-    with open(filename,"r") as f:
-        lines=f.readlines()
-        for line in lines:
-            line=line.strip()
-            if line.startswith("#") or line =="":
-                continue
-            tokens=line.split(",")
-            domainlist.append(Domain(tokens[0],tokens[1]))
+def numOFname(str):
+    num = 0
+    for i in str:
+        if i.isdigit():
+            num += 1
+    return num
 
-def predictData(testfile,outputfile):
-    with open(testfile,"r") as f1:
-        with open(outputfile,"w") as f2:
-            lines=f1.readlines()
-            for line in lines:
-                line=line.strip()
-                if line.startswith("#") or line =="":
-                    continue
-                P=clf.predict([[len(line),Count_numbers(line),Calculate_entropy(line)]])
-                if(P==[0]):
-                    f2.write(line+",dga\n")
-                else:
-                    f2.write(line+",notdga\n")
+def numOFseg(str):
+    num = 0
+    for i in str:
+        if i == '.':
+            num += 1
+    return num
 
-if __name__=='__main__':
-    initData("train.txt")
-    featureMatrix=[]
-    labelList=[]
-    for item in domainlist:
-	    featureMatrix.append(item.Return_data())
-	    labelList.append(item.Return_label())
+def calEntropy(str):
+    h = 0.0
+    sumLetter = 0
+    letter = [0] * 26
+    str = str.lower()
+    for i in range(len(str)):
+        if str[i].isalpha():
+            letter[ord(str[i]) - ord('a')] += 1
+            sumLetter += 1
+    for i in range(26):
+        p = 1.0 * letter[i] / sumLetter
+        if p > 0:
+            h += -(p * math.log(p, 2))
+    return h
+
+def initData(filename,domainList):
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("#") or line == "":
+                 continue
+            tokens = line.split(",")
+            name = tokens[0]
+            length = len(name)
+            if tokens[0] != line:
+                label = tokens[1]
+            else:
+                label = "?"
+            num = numOFname(name)
+            entropy = calEntropy(name)
+            seg = numOFseg(name)
+            domainList.append(Domain(name, label, length, num, entropy, seg))
+
+def main():
+    domainlist1 = []
+    domainlist2 = []
+    initData("train.txt",domainlist1)
+    featureMatrix = []
+    labelList = []
+    for item in domainlist1:
+         featureMatrix.append(item.returnData())
+         labelList.append(item.returnLabel())
+    clf = RandomForestClassifier(random_state = 0)
     clf.fit(featureMatrix,labelList)
-    predictData("test.txt","result.txt")
+    initData("test.txt",domainlist2)
+    with open("result.txt","w") as f:
+        for i in domainlist2:
+            f.write(i.name)
+            f.write(",")
+            if clf.predict([i.returnData()])[0] == 0:
+                f.write("notdga\n")
+            else:
+                f.write("dga\n")
+            
+if __name__ == '__main__':
+    main()
